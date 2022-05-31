@@ -1,0 +1,5 @@
+main.c:72:5:main	40	static
+main.c:136:13:MX_UART7_Init	8	static
+main.c:184:6:MX_USART3_UART_Init	8	static
+main.c:232:13:MX_GPIO_Init	40	static
+main.c:263:6:Error_Handler	4	static,ignoring_inline_asm
