@@ -16,7 +16,7 @@ extern UART_HandleTypeDef huart7;
 //extern UART_HandleTypeDef huart3;
 
 #define wifi_uart &huart7
-#define ESP_ENABLE 0
+#define ESP_ENABLE 1
 
 
 char buffer[20];
@@ -27,8 +27,8 @@ char *home = "<!DOCTYPE html>\n\
 		<body>\n\
 		<h1>404</h1>\n\
 		</body></html>";
-//<meta http-equiv=\"refresh\" content=\"4\">
-char *farm_top =  "<!DOCTYPE html><meta charset=\"utf-8\"><html><head><style>body{margin: 0; height: 100vh; display: flex; justify-content: center; \
+
+char *farm_top =  "<!DOCTYPE html><meta charset=\"utf-8\"><meta http-equiv=\"refresh\" content=\"3\"><html><head><style>body{margin: 0; height: 100vh; display: flex; justify-content: center; \
 		flex-direction: column; font-size: 80px;}.flex{display: flex;}.center{align-items: center; justify-content: center;} \
 		.col{flex-direction: column;}.row{flex-direction: row;}.c1, .c2{padding: 10px; text-align: center;}.c2{position: relative; width: 400px;} \
 		.c2::after{position: absolute; content: ""; bottom: 0; left: 0; width: 100%; height: 1px; background-color: gray;} \
@@ -76,8 +76,6 @@ void ESP_Init ()
 }
 
 
-
-
 int Server_Send (char *str, int Link_ID)
 {
 	int len = strlen (str);
@@ -105,21 +103,11 @@ void Server_Handle (char *str, int Link_ID)
 		uint8_t water_on = 0;
 		uint8_t tc = 0;
 		uint8_t rd = 0;
-		uint16_t r = 0;
-		uint16_t g = 0;
-		uint16_t b = 0;
-		uint32_t soil = 0;
+		uint8_t r = 0;
+		uint8_t g = 0;
+		uint8_t b = 0;
+		uint8_t soil = 0;
 
-
-//		uint8_t fan_on= 0;
-//		uint8_t light_on= 0;
-//		uint8_t water_on= 1;
-//		uint8_t tc= 28;
-//		uint8_t rd= 70;
-//		uint8_t r= 0;
-//		uint8_t g= 0;
-//		uint8_t b= 0;
-//		uint8_t soil = 30;
 		if(HAL_HSEM_Take(9, 0) == HAL_OK) {
 			fan_on = shared_ptr->fan_on;
 			light_on = shared_ptr->light_on;
@@ -130,43 +118,36 @@ void Server_Handle (char *str, int Link_ID)
 			g = shared_ptr->g;
 			b = shared_ptr->b;
 			soil = shared_ptr->soil;
-			//soil = 77;
 			HAL_HSEM_Release(9,0);
 		}
-//debug
-		fan_on= 0;
-		light_on= 0;
-		water_on= 1;
-		tc= 28;
-		rd= 70;
-		soil = 30;
 
 		if(fan_on)
 		{
-			strcat (datatosend, "<a href=\"/fanon\" class=\"off\">風扇</a>");
+			strcat (datatosend, "<a href=\"/fanon\">風扇</a>");
 		}
 		else
 		{
-			strcat (datatosend, "<a href=\"/fanon\">風扇</a>");
+			strcat (datatosend, "<a href=\"/fanon\" class=\"off\">風扇</a>");
 		}
 		strcat (datatosend, "</div><div class=\"btn\">");
 		if(light_on)
 		{
-			strcat (datatosend, "<a href\"/lighto\" class=\"off\">燈光</a>");
+			strcat (datatosend, "<a href\"/lighto\">燈光</a>");
 		}
 		else
 		{
-			strcat (datatosend, "<a href\"/lighto\">燈光</a>");
+			strcat (datatosend, "<a href\"/lighto\" class=\"off\">燈光</a>");
 		}
 		strcat (datatosend, "</div><div class=\"btn\">");
 		if(water_on)
 		{
-			strcat (datatosend, "<a href=\"/wateron\" class=\"off\">澆水</a>");
+			strcat (datatosend, "<a href=\"/wateron\">澆水</a>");
 		}
 		else
 		{
-			strcat (datatosend, "<a href=\"/wateron\">澆水</a>");
+			strcat (datatosend, "<a href=\"/wateron\" class=\"off\">澆水</a>");
 		}
+
 		strcat (datatosend, "</div></div><div class=\"center flex col\"><div class=\"flex row center\"><div class=\"td c1\">溫度:</div>");
 		sprintf (localbuf, "<div class=\"c2\">%d</div>", tc);
 		strcat (datatosend, localbuf);
@@ -180,6 +161,7 @@ void Server_Handle (char *str, int Link_ID)
 		sprintf (localbuf, "<div class=\"c2\">%d</div>", soil);
 		strcat (datatosend, localbuf);
 		strcat (datatosend, "</div></body></html>");
+
 		Server_Send(datatosend, Link_ID);
 	}
 	else

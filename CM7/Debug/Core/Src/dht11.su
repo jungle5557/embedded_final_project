@@ -1,0 +1,6 @@
+dht11.c:13:6:DHT11_init	8	static
+dht11.c:17:6:microDelay	16	static
+dht11.c:22:10:getCounter	4	static
+dht11.c:27:9:DHT11_Start	40	static
+dht11.c:65:9:DHT11_Read	24	static
+dht11.c:96:9:DHT11_Data	24	static

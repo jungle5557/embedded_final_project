@@ -43,10 +43,10 @@ struct shared_data
 	uint8_t water_on;
 	uint8_t tc;
 	uint8_t rd;
-	uint16_t r;
-	uint16_t g;
-	uint16_t b;
-	uint32_t soil;
+	uint8_t r;
+	uint8_t g;
+	uint8_t b;
+	uint8_t soil;
 };
 
 

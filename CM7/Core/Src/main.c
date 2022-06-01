@@ -46,6 +46,7 @@
 /* Private variables ---------------------------------------------------------*/
 ADC_HandleTypeDef hadc1;
 
+TIM_HandleTypeDef htim2;
 TIM_HandleTypeDef htim3;
 TIM_HandleTypeDef htim6;
 
@@ -63,31 +64,50 @@ static void MX_ADC1_Init(void);
 static void MX_TIM6_Init(void);
 static void MX_TIM3_Init(void);
 static void MX_USART3_UART_Init(void);
+static void MX_TIM2_Init(void);
 /* USER CODE BEGIN PFP */
 
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
+
+// dht22
+uint8_t Rh_byte1, Rh_byte2, Temp_byte1, Temp_byte2;
+uint16_t SUM, RH, TEMP;
+float Temperature = 0;
+float Humidity = 0;
+uint8_t Presence = 0;
+
+// soil
+uint32_t readvalue;
+int moisture_threshold = 50;
+
+
+// rgb
+uint8_t i;
+uint16_t adj_num;
+uint16_t dat_v[3];
+double adj_v[3];
+uint16_t adj_temp[3];
+uint8_t adj_en;
+uint16_t dat;
+
+// controller status
+uint8_t fan_status;
+uint8_t light_status;
+uint8_t water_status;
+
 float map(float val, float I_Min, float I_Max, float O_Min, float O_Max)
 {
 	return (((val-I_Min)*((O_Max-O_Min)/(I_Max-I_Min)))+O_Min);
 }
-
-
 void delay (uint16_t time)
 {
 	/* change your code here for the delay in microseconds */
-	__HAL_TIM_SET_COUNTER(&htim6, 0);
-	while ((__HAL_TIM_GET_COUNTER(&htim6))<time);
+	__HAL_TIM_SET_COUNTER(&htim2, 0);
+	while ((__HAL_TIM_GET_COUNTER(&htim2))<time);
 }
-
-uint8_t Rh_byte1, Rh_byte2, Temp_byte1, Temp_byte2;
-uint16_t SUM, RH, TEMP;
-
-float Temperature = 0;
-float Humidity = 0;
-uint8_t Presence = 0;
 
 void Set_Pin_Output (GPIO_TypeDef *GPIOx, uint16_t GPIO_Pin)
 {
@@ -107,60 +127,59 @@ void Set_Pin_Input (GPIO_TypeDef *GPIOx, uint16_t GPIO_Pin)
 	HAL_GPIO_Init(GPIOx, &GPIO_InitStruct);
 }
 
-//PG14
-#define DHT11_PORT GPIOG
-#define DHT11_PIN GPIO_PIN_14
 
-void DHT11_Start (void)
+#define DHT22_PORT GPIOG
+#define DHT22_PIN GPIO_PIN_14
+
+
+void DHT22_Start (void)
 {
-	Set_Pin_Output (DHT11_PORT, DHT11_PIN);  // set the pin as output
-	HAL_GPIO_WritePin (DHT11_PORT, DHT11_PIN, 0);   // pull the pin low
-	delay (18000);   // wait for 18ms
-    HAL_GPIO_WritePin (DHT11_PORT, DHT11_PIN, 1);   // pull the pin high
-	delay (20);   // wait for 20us
-	Set_Pin_Input(DHT11_PORT, DHT11_PIN);    // set as input
+	Set_Pin_Output(DHT22_PORT, DHT22_PIN); // set the pin as output
+	HAL_GPIO_WritePin (DHT22_PORT, DHT22_PIN, 0);   // pull the pin low
+	delay(1200);   // wait for > 1ms
+
+	HAL_GPIO_WritePin (DHT22_PORT, DHT22_PIN, 1);   // pull the pin high
+	delay (20);   // wait for 30us
+
+	Set_Pin_Input(DHT22_PORT, DHT22_PIN);   // set as input
 }
 
-uint8_t DHT11_Check_Response (void)
-{
-	uint8_t Response = 0;
-	delay (40);
-	if (!(HAL_GPIO_ReadPin (DHT11_PORT, DHT11_PIN)))
-	{
-		delay (80);
-		if ((HAL_GPIO_ReadPin (DHT11_PORT, DHT11_PIN))) Response = 1;
-		else Response = -1; // 255
-	}
-	while ((HAL_GPIO_ReadPin (DHT11_PORT, DHT11_PIN)));   // wait for the pin to go low
 
+uint8_t DHT22_Check_Response (void)
+{
+	Set_Pin_Input(DHT22_PORT, DHT22_PIN);   // set as input
+	uint8_t Response = 0;
+	delay (40);  // wait for 40us
+	if (!(HAL_GPIO_ReadPin (DHT22_PORT, DHT22_PIN))) // if the pin is low
+	{
+		delay (80);   // wait for 80us
+
+		if ((HAL_GPIO_ReadPin (DHT22_PORT, DHT22_PIN))) Response = 1;  // if the pin is high, response is ok
+		else Response = -1;
+	}
+
+	while ((HAL_GPIO_ReadPin (DHT22_PORT, DHT22_PIN)));   // wait for the pin to go low
 	return Response;
 }
 
-uint8_t DHT11_Read (void)
+uint8_t DHT22_Read (void)
 {
 	uint8_t i,j;
 	for (j=0;j<8;j++)
 	{
-		while (!(HAL_GPIO_ReadPin (DHT11_PORT, DHT11_PIN)));   // wait for the pin to go high
+		while (!(HAL_GPIO_ReadPin (DHT22_PORT, DHT22_PIN)));   // wait for the pin to go high
 		delay (40);   // wait for 40 us
-		if (!(HAL_GPIO_ReadPin (DHT11_PORT, DHT11_PIN)))   // if the pin is low
+
+		if (!(HAL_GPIO_ReadPin (DHT22_PORT, DHT22_PIN)))   // if the pin is low
 		{
 			i&= ~(1<<(7-j));   // write 0
 		}
 		else i|= (1<<(7-j));  // if the pin is high, write 1
-		while ((HAL_GPIO_ReadPin (DHT11_PORT, DHT11_PIN)));  // wait for the pin to go low
+		while ((HAL_GPIO_ReadPin (DHT22_PORT, DHT22_PIN)));  // wait for the pin to go low
 	}
+
 	return i;
 }
-
-uint8_t i;
-uint16_t adj_num;
-uint16_t dat_v[3];
-double adj_v[3];
-uint16_t adj_temp[3];
-uint8_t adj_en;
-uint16_t dat;
-
 
 /* USER CODE END 0 */
 
@@ -225,92 +244,92 @@ Error_Handler();
   MX_TIM6_Init();
   MX_TIM3_Init();
   MX_USART3_UART_Init();
+  MX_TIM2_Init();
   /* USER CODE BEGIN 2 */
-  HAL_TIM_Base_Start(&htim6);
+
+//  HAL_TIM_Base_Start(&htim6);
+  HAL_TIM_Base_Start(&htim2);
   HAL_TIM_Base_Start_IT(&htim3);
-  int moisture_threshold = 50;
+
   /* USER CODE END 2 */
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
-//  HAL_UART_Transmit(&huart3,"Test start\r\n",10,100);
   HAL_UART_Transmit(&huart3,"#### Start Init####\r\n",21,100);
+  uint8_t fan_on;
+  uint8_t light_on;
+  uint8_t water_on;
+  uint8_t tc;
+  uint8_t rd;
+  uint8_t r;
+  uint8_t g;
+  uint8_t b;
+  uint8_t soil;
 
-
-	uint8_t fan_on;
-	uint8_t light_on;
-	uint8_t water_on;
-	uint8_t tc;
-	uint8_t rd;
-	uint16_t r;
-	uint16_t g;
-	uint16_t b;
-	uint32_t soil;
-
-
-//	  if(HAL_HSEM_Take(9, 0) == HAL_OK){
-//
-//			  shared_ptr->tc = 99;
-//			  shared_ptr->rd = 70;
-//			  shared_ptr->fan_on = 1;
-//			  shared_ptr->light_on = 0;
-//			  shared_ptr->water_on = 1;
-//			  shared_ptr->r = 12;
-//			  shared_ptr->g = 23;
-//			  shared_ptr->b = 45;
-//			  shared_ptr->soil = 78;
-//
-//			  HAL_HSEM_Release(9, 0);
-//		 }
   while (1)
   {
 	  // YL69 + relay
 	  char adc_buffer[100];
 	  HAL_ADC_Start(&hadc1);
-
-	  uint32_t readvalue;
-
 	  readvalue = HAL_ADC_GetValue(&hadc1);
-	  readvalue = map(readvalue,150,255,100,0);
+	  readvalue = map(readvalue,130,255,100,0);
 	  sprintf(adc_buffer,"Moisture:%d\r\n",readvalue);
 	  HAL_UART_Transmit(&huart3,adc_buffer,strlen(adc_buffer),1000);
 
-
 	  if (readvalue<=moisture_threshold)
 	  {
-		  HAL_GPIO_WritePin(GPIOB,GPIO_PIN_6,1);
-	  } else {
 		  HAL_GPIO_WritePin(GPIOB,GPIO_PIN_6,0);
+		  water_status = 1;
+	  } else {
+		  water_status = 0;
+		  HAL_GPIO_WritePin(GPIOB,GPIO_PIN_6,1);
 	  }
 
+	  //DHT22
+	  char dht_buffer[100];
+	  DHT22_Start();
+	  Presence = DHT22_Check_Response();
+	  Rh_byte1 = DHT22_Read();
+	  Rh_byte2 = DHT22_Read();
+	  Temp_byte1 = DHT22_Read();
+	  Temp_byte2 = DHT22_Read();
+	  SUM = DHT22_Read();
 
+	  TEMP = ((Temp_byte1<<8)|Temp_byte2);
+	  RH = ((Rh_byte1<<8)|Rh_byte2);
 
+	  Temperature = (float) (TEMP/10.0);
+	  Humidity = (float) (RH/10.0);
+
+	  sprintf(dht_buffer,"temp:%.2f,humidity:%.2f\r\n",Temperature,Humidity);
+	  HAL_UART_Transmit(&huart3,dht_buffer,strlen(dht_buffer),1000);
+
+	  if (Temperature>=30)
+	  {
+		  HAL_GPIO_WritePin(GPIOB,GPIO_PIN_9,1);
+		  fan_status = 1;
+	  } else {
+		  HAL_GPIO_WritePin(GPIOB,GPIO_PIN_9,0);
+		  fan_status = 0;
+	  }
 
 	  if(HAL_HSEM_Take(9, 0) == HAL_OK){
 		  char test_buffer[100];
+		  shared_ptr->tc = Temperature;
+		  shared_ptr->rd = Humidity;
 		  shared_ptr->r = dat_v[2]%256;
 		  shared_ptr->g = dat_v[0]%256;
 		  shared_ptr->b = dat_v[1]%256;
 		  shared_ptr->soil = readvalue;
-		  //shared_ptr->soil = 78;
-		  shared_ptr->fan_on = 1;
+		  shared_ptr->fan_on = fan_status;
 		  shared_ptr->light_on = 0;
-		  shared_ptr->water_on = 1;
+		  shared_ptr->water_on = water_status;
 		  sprintf(test_buffer,"Write r: %d, g: %d b: %d\r\n",dat_v[2]%256,dat_v[0]%256,dat_v[1]%256,readvalue);
-
 		  HAL_UART_Transmit(&huart3,test_buffer,strlen(test_buffer),1000);
 		  HAL_HSEM_Release(9, 0);
-
 	  }
 
-
-
-
 	  HAL_Delay(3000);
-
-
-//	  HAL_GPIO_TogglePin(LD2_GPIO_Port, LD2_Pin);
-//	  HAL_Delay(1000);
 
     /* USER CODE END WHILE */
 
@@ -465,6 +484,51 @@ static void MX_ADC1_Init(void)
   /* USER CODE BEGIN ADC1_Init 2 */
 
   /* USER CODE END ADC1_Init 2 */
+
+}
+
+/**
+  * @brief TIM2 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_TIM2_Init(void)
+{
+
+  /* USER CODE BEGIN TIM2_Init 0 */
+
+  /* USER CODE END TIM2_Init 0 */
+
+  TIM_ClockConfigTypeDef sClockSourceConfig = {0};
+  TIM_MasterConfigTypeDef sMasterConfig = {0};
+
+  /* USER CODE BEGIN TIM2_Init 1 */
+
+  /* USER CODE END TIM2_Init 1 */
+  htim2.Instance = TIM2;
+  htim2.Init.Prescaler = 63;
+  htim2.Init.CounterMode = TIM_COUNTERMODE_UP;
+  htim2.Init.Period = 4294967295;
+  htim2.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
+  htim2.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
+  if (HAL_TIM_Base_Init(&htim2) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sClockSourceConfig.ClockSource = TIM_CLOCKSOURCE_INTERNAL;
+  if (HAL_TIM_ConfigClockSource(&htim2, &sClockSourceConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sMasterConfig.MasterOutputTrigger = TIM_TRGO_RESET;
+  sMasterConfig.MasterSlaveMode = TIM_MASTERSLAVEMODE_DISABLE;
+  if (HAL_TIMEx_MasterConfigSynchronization(&htim2, &sMasterConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN TIM2_Init 2 */
+
+  /* USER CODE END TIM2_Init 2 */
 
 }
 
@@ -627,7 +691,7 @@ static void MX_GPIO_Init(void)
   HAL_GPIO_WritePin(GPIOG, GPIO_PIN_14, GPIO_PIN_RESET);
 
   /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(GPIOB, GPIO_PIN_6, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(GPIOB, GPIO_PIN_6|GPIO_PIN_9, GPIO_PIN_RESET);
 
   /*Configure GPIO pin Output Level */
   HAL_GPIO_WritePin(LD2_GPIO_Port, LD2_Pin, GPIO_PIN_RESET);
@@ -702,6 +766,13 @@ static void MX_GPIO_Init(void)
   /*Configure GPIO pin : PB6 */
   GPIO_InitStruct.Pin = GPIO_PIN_6;
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_OD;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+  HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
+
+  /*Configure GPIO pin : PB9 */
+  GPIO_InitStruct.Pin = GPIO_PIN_9;
+  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
   HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
